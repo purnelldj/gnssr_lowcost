@@ -11,7 +11,7 @@ function nmea2snr_fun(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdi
 %
 % nmeafile: path to nmeafile
 % sp3dir: path to sp3 orbit data
-% sp3option: type of sp3 data (see below)
+% sp3option: type of sp3 data (see below) (3 is recommended)
 % elv_lims: (1,2) double of min and max elevation angles
 % azi_lims: (1,2) double of min and max azimuth angles
 % decimate: change temporal resolution of output data (seconds)
