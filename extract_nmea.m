@@ -3,7 +3,7 @@
 for ii=1:4
 station='rv3s';
 antennaid=upper(char(96+ii));
-filenums=1:2;
+filenums=1:11;
 pwdstr=pwd;
 snrdir=['data/',station,lower(antennaid),'/snr/'];
 sp3dir='~/data/sp3';
@@ -15,10 +15,9 @@ sp3option=3;
 addpath('functions')
 for ff=1:numel(filenums)
     disp(['doing file number ',num2str(filenums(ff))])
-    nmeafile=['~/data/',station,'/rawdata_10oct/gpslog',antennaid,...
+    nmeafile=['~/data/',station,'/rawdata_12nov/gpslog',antennaid,...
         num2str(filenums(ff))];
-    return
-    nmea2snr_fun(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdir)
+    nmea2snr(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdir)
 end
 
 end

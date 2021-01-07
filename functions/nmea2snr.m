@@ -1,4 +1,4 @@
-function nmea2snr_fun(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdir)
+function nmea2snr(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdir)
 
 %%
 
@@ -138,6 +138,12 @@ while ~feof(fid) % this isn't working, sort out
 end
 if feof(fid)
     donefile=1;
+end
+
+if cnt==1
+    disp('empty file')
+    disp('try next one')
+    return
 end
 
 if numel(sp3dir)>0
