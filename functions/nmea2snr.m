@@ -2,6 +2,7 @@ function nmea2snr(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdir)
 
 %%
 
+
 % This function reads NMEA 0183 format GPS data (e.g., recorded by
 % low-cost hardware) and converts it into files for GNSS-R analysis
 %
