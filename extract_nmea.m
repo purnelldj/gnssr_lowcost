@@ -1,4 +1,4 @@
-%clear all;
+clear all;
 
 for ii=1:4
 station='rv3s';
