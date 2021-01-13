@@ -1,5 +1,7 @@
-function [rh_stats,snr_dt] = snr2arcs(snr_data,staxyz,elvlims,azilims,rhlims,dt,satconsts,sig,arclims,snrfigs,lspfigs,gfresnel)
+function [rh_stats,snr_dt] = snr2arcs(snr_data,staxyz,elvlims,azilims,rhlims,dt,...
+    satconsts,sig,arclims,snrfigs,lspfigs,gfresnel)
 
+%%
 pwdstr=pwd;
 if satconsts(2)
 load([pwdstr,'/functions/glonasswlen.mat'])
@@ -63,12 +65,15 @@ if gfresnel==1
     lon(lon>180)=lon-360;
 end
 
+snr_data=sortrows(snr_data,1);
+
 ind=1;
 cursat=snr_data(1,1);
 stind=1;
 stopp=1;
 rhind=0;
 snr_dt=zeros(0,4);
+%rh_stats=zeros(0,11);
 prec=0.001; % precision of lomb scargle
 if snr_data(2,2)-snr_data(1,2)<0
     fwd2=0;

@@ -1,4 +1,4 @@
-function nmea2snr(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdir)
+function nmea2snr(nmeafile,sp3dir,sp3option,elvlims,azilims,tempres,snrdir)
 
 %%
 
@@ -12,9 +12,9 @@ function nmea2snr(nmeafile,sp3dir,sp3option,elv_lims,azi_lims,decimate,snrdir)
 % nmeafile: path to nmeafile
 % sp3dir: path to sp3 orbit data
 % sp3option: type of sp3 data (see below) (3 is recommended)
-% elv_lims: (1,2) double of min and max elevation angles
-% azi_lims: (1,2) double of min and max azimuth angles
-% decimate: change temporal resolution of output data (seconds)
+% elvlims: (1,2) double of min and max elevation angles
+% azilims: (1,2) double of min and max azimuth angles
+% tempres: change temporal resolution of output data (seconds)
 % snrdir: the directory which output files are saved to (see below for
 % format of variables)
 %
@@ -161,10 +161,10 @@ dow=sow/86400;
 
 if sp3option==1
 % OPTION 1
-sp3str=[sp3dir,'/com',num2str(gpsw),num2str(round(dow)),'.sp3'];
+sp3str=[sp3dir,'/com/com',num2str(gpsw),num2str(round(dow)),'.sp3'];
 elseif sp3option==2
 % OPTION 2
-sp3str=[sp3dir,'/igs',num2str(gpsw),num2str(round(dow)),'.sp3'];
+sp3str=[sp3dir,'/igs/igs',num2str(gpsw),num2str(round(dow)),'.sp3'];
 elseif sp3option==3
 % OPTION 3
 sp3str=[sp3dir,'/COD/COD0MGXFIN_',stryrl,strday,'0000_01D_05M_ORB.SP3'];
@@ -185,14 +185,14 @@ for satind=1:92
 s1datat=squeeze(s1data(:,satind,5));
 secs=find(~isnan(s1datat(:)));
 secs=secs-1; % because 1 is 0
-if decimate~=0
-    inspl=mod(secs,decimate)==0;
+if tempres~=0
+    inspl=mod(secs,tempres)==0;
     secs=secs(inspl);
 end
 s1datat=s1datat(secs+1);
 
 clear xyzt
-if sum(~isnan(squeeze(xyz(satind,:,1))))>1
+if sum(~isnan(squeeze(xyz(satind,:,1))))>1 && numel(s1datat)>0
 xyzt(:,1)=spline(txyzsecs,squeeze(xyz(satind,:,1)),secs);
 xyzt(:,2)=spline(txyzsecs,squeeze(xyz(satind,:,2)),secs);
 xyzt(:,3)=spline(txyzsecs,squeeze(xyz(satind,:,3)),secs);
@@ -204,7 +204,7 @@ ind=0;
 snrdatat=[];
 for tt=1:numel(secs)
 [azi,elv]=gnss2azelv(staxyz,xyzt(tt,:),lattt,lontt);
-if (azi>azi_lims(1) && azi<azi_lims(2)) && (elv>elv_lims(1) && elv<elv_lims(2))
+if (azi>azilims(1) && azi<azilims(2)) && (elv>elvlims(1) && elv<elvlims(2))
 ind=ind+1;
 snrdatat(ind,1)=satind;
 snrdatat(ind,2)=elv;
@@ -214,6 +214,7 @@ snrdatat(ind,5)=NaN;
 snrdatat(ind,6)=NaN;
 snrdatat(ind,7)=s1datat(tt);
 snrdatat(ind,8)=NaN;
+snrdatat(ind,9)=datevecn+secs(tt)/86400;
 end
 end
 
@@ -229,9 +230,9 @@ for ij=1:92
     inds=~isnan(s1data(:,ij,5));
     if sum(inds)>1
     s1datat=squeeze(s1data(inds,ij,:));
-    inds=s1datat(:,2)>elv_lims(1) & s1datat(:,2)<elv_lims(2);
+    inds=s1datat(:,2)>elvlims(1) & s1datat(:,2)<elvlims(2);
     s1datat=s1datat(inds,:);
-    inds=s1datat(:,3)>azi_lims(1) & s1datat(:,3)<azi_lims(2);
+    inds=s1datat(:,3)>azilims(1) & s1datat(:,3)<azilims(2);
     s1datat=s1datat(inds,:);
     % now fit 2nd order poly
     p2=polyfit(s1datat(:,4),s1datat(:,2),4);
