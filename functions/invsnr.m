@@ -1,5 +1,6 @@
-function [sfacsjs,sfacspre,xinit,hinit,consts_out,roughout] = invsnr(tdatenum,snrdir,staxyz,...
-    elvlims,azilims,rhlims,kspac,tlen,dt,satconsts,sig,arclims,largetides,roughin,skipjs)
+function [sfacsjs,sfacspre,xinit,hinit,consts_out,roughout] = invsnr(...
+    tdatenum,snrdir,staxyz,elvlims,azilims,rhlims,kspac,tlen,dt,satconsts,...
+    sig,arclims,pktnlim,largetides,roughin,skipjs)
 
 
 %%
@@ -25,8 +26,8 @@ function [sfacsjs,sfacspre,xinit,hinit,consts_out,roughout] = invsnr(tdatenum,sn
 % sig: 1 for l1 or 2 for l2
 % arclims: 1 by 2 double, min and max time limits (in seconds) for a satellite arc to be
 % included, suggested default [300 inf]
-% altelvlims: to overwrite the elevation limits in the station input file
-% and use alternate ones, e.g., [5 15] for 5 to 15 degrees
+% pktnlim: for outlier detection - max power of reflector height must be
+% larger than pktnlim times the mean of the periodogram outside rhlims
 % largetides: changes the initial guess for node values (1 or 0)
 % roughin: initial sfc roughness guess ('s') in metres for least squares
 % adjustment, set to '' if don't want to use roughness
@@ -45,7 +46,6 @@ function [sfacsjs,sfacspre,xinit,hinit,consts_out,roughout] = invsnr(tdatenum,sn
 % adjustment
 
 p=2; % bspline order
-stdfac=3;
 
 snrfigs=0;
 lspfigs=0;
@@ -120,11 +120,13 @@ if numel(snr_data_all)==0
 end
 
 % HERE IS WHERE THE NEW FUNCTION NEEDS TO GO
+normalize=1;
 snr_dt=[];
 rh_stats=[];
 for ll=1:numel(snrdir)
-    [rh_statst,snr_dtt] = snr2arcs(snr_data_all,staxyz,elvlims,azilims,rhlims,...
-        dt,satconsts,sig,arclims,snrfigs,lspfigs,gfresnel);
+    [rh_statst,snr_dtt] = snr2arcs(snr_data_all,staxyz,elvlims,azilims,...
+        rhlims,dt,satconsts,sig,arclims,normalize,pktnlim,snrfigs,lspfigs,...
+        gfresnel);
     rh_statst(:,12)=ll;
     snr_dtt(:,5)=ll;
     rh_stats=[rh_stats;rh_statst];
@@ -152,12 +154,51 @@ else
     meanhgts=0;
 end
 
-rh_stats=sortrows(rh_stats,1);
-hsmooth=smoothdata(rh_stats(:,2),'movmean',5);
-diff1=abs(hsmooth-rh_stats(:,2));
-std1=std(diff1);
-delete=diff1(:,1)>stdfac*std1; % better to keep at 3
-rh_stats(delete,:)=[];
+std_consec=std(diff(rh_stats(:,2)));
+disp(['standard deviation is ',num2str(std_consec)])
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% OUTLIER DETECTION OPTIONS
+
+%if std_consec > 3
+%    disp('std bigger than chosen value')
+%    return    
+%end
+
+% get rid of satellite ascending and descending points separately
+smoothtest=0;
+if smoothtest==1
+fwds=rh_stats(:,4)>0;
+fwd_ids=find(fwds);
+bkd_ids=find(~fwds);
+rhsmooth_fwd=smoothdata(rh_stats(fwds,2),'movmean',5);
+rhsmooth_bkd=smoothdata(rh_stats(~fwds,2),'movmean',5);
+diffs_fwd=abs(rhsmooth_fwd-rh_stats(fwds,2));
+diffs_bkd=abs(rhsmooth_bkd-rh_stats(~fwds,2));
+del1=diffs_fwd>3*std(diffs_fwd);
+del2=diffs_bkd>3*std(diffs_bkd);
+fwd_ids(del1)=[];
+bkd_ids(del2)=[];
+all_ids=[fwd_ids;bkd_ids];
+rh_stats=rh_stats(sort(all_ids),:);
+end
+
+% for testing dbscan algorithm to remove outliers
+dbscantest=0;
+if dbscantest==1
+epsilon = 1.5; % search radius - adjust for tidal range
+minpoints = 3;
+dbscale = 15; % scale the time axis by the average vertical velocity in meters per day
+rht_scaled = rh_stats(:,1).*dbscale;
+rh_t = rh_stats(:,2);
+idx = dbscan([rht_scaled rh_t],epsilon,minpoints);
+del1 = idx==-1;
+rh_stats(del1,:)=[];
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if largetides==0
 indt=snr_dt(:,3)>tdatenum+tlen/3 & snr_dt(:,3)<tdatenum+2*tlen/3;
@@ -177,7 +218,7 @@ maxtgap=max(diff(sort(tempt)));
 end
 disp(['max gap is ',num2str(maxtgap*24*60),' minutes'])
 
-if  numel(maxtgap)==0 || maxtgap>kspac*1.5 ||...
+if  numel(maxtgap)==0 || maxtgap>kspac ||...
         max(rh_stats(:,1))<tdatenum+2*tlen/3 || min(rh_stats(:,1))>tdatenum+tlen/3
     disp('gap in data bigger than node spacing')
     % CHOOSE THIS
@@ -196,8 +237,10 @@ knots=[tdatenum*ones(1,p) ...
     (tdatenum+tlen)*ones(1,p)];
 nsfac=tlen/kspac+p;
 sfacs_0=mean(rh_stats(:,2))*ones(1,nsfac);
-tempfun_init=@(sfacs) bspline_spectral(sfacs,p,knots,rh_stats(:,4),rh_stats(:,1),1)-rh_stats(:,2).';
-%tempfun_init=@(sfacs) bspline_spectral_accel(sfacs,p,knots,rh_stats(:,4),rh_stats(:,1),rh_stats(:,11),1)-rh_stats(:,2).';
+tempfun_init=@(sfacs) bspline_spectral(sfacs,p,knots,rh_stats(:,4),...
+    rh_stats(:,1),1)-rh_stats(:,2).';
+%tempfun_init=@(sfacs) bspline_spectral_accel(sfacs,p,knots,rh_stats(:,4),...
+%rh_stats(:,1),rh_stats(:,11),1)-rh_stats(:,2).';
 options=optimoptions(@lsqnonlin,'Algorithm','levenberg-marquardt',...
     'Display','off'); % off for now but maybe should check sometimes
 sfacs_init=lsqnonlin(tempfun_init,sfacs_0,[],[],options); %lsqnonlin or fsolve??

@@ -1,7 +1,11 @@
-function [rh_stats,snr_dt] = snr2arcs(snr_data,staxyz,elvlims,azilims,rhlims,dt,...
-    satconsts,sig,arclims,snrfigs,lspfigs,gfresnel)
+function [rh_stats,snr_dt] = snr2arcs(snr_data,staxyz,elvlims,azilims,...
+    rhlims,dt,satconsts,sig,arclims,normalize,pktnlim,snrfigs,lspfigs,gfresnel)
 
 %%
+
+rh_stats=[];
+snr_dt=[];
+
 pwdstr=pwd;
 if satconsts(2)
 load([pwdstr,'/functions/glonasswlen.mat'])
@@ -33,10 +37,7 @@ in=snr_data(:,3)>azilims(1) & snr_data(:,3)<azilims(2);
 snr_data=snr_data(in,:);
 in=snr_data(:,2)<elvlims(2) & snr_data(:,2)>elvlims(1);
 snr_data=snr_data(in,:);
-%if exist('azi_mask')==1
-%    out=snr_data(:,3)>azi_mask(1) & snr_data(:,3)<azi_mask(2);
-%    snr_data(out,:)=[];
-%end
+
 tmp=snr_data(:,7)==0;
 snr_data(tmp,7)=NaN;
 tmp=snr_data(:,8)==0;
@@ -116,7 +117,9 @@ while stopp==1
         p1=polyfit(sinelvt,snrtmp,2);
         y1=polyval(p1,sinelvt);
         snrtmp=snrtmp-y1;
-        snrtmp=snrtmp*100/(max(abs(snrtmp))); % NORMALIZE
+        if normalize==1
+        snrtmp=snrtmp*100/(max(abs(snrtmp))); % NORMALIZE\
+        end
         %%%%%%%
         %sinelv=[sinelv;sinelvt];
         %snr=[snr;snrtmp];
@@ -145,17 +148,23 @@ while stopp==1
         Lcar=299792458/1227.60e06;
         end 
         end
-        maxf1=numel(sinelvt)/(2*(max(sinelvt)-min(sinelvt)));
-        ovs=round(Lcar/(2*prec*(max(sinelvt)-min(sinelvt))));
         if sum(diff(sinelvt)>0)==numel(sinelvt)-1 || sum(diff(sinelvt)>0)==0
+        %maxf1=numel(sinelvt)/(2*(max(sinelvt)-min(sinelvt)));
+        maxf1=2*(rhlims(2)+rhlims(1))/Lcar;
+        ovs=round(Lcar/(2*prec*(max(sinelvt)-min(sinelvt))));
         [psd,f]=plomb(snrtmp,sinelvt,maxf1,ovs,'normalized'); %
         reflh1=f.*0.5*Lcar;
-        [~,id]=max(psd(:));
-        if reflh1(id) > rhlims(1) && reflh1(id) < rhlims(2)
+        inbounds=reflh1(:)>rhlims(1) & reflh1(:)<rhlims(2);
+        psdt=psd(inbounds);
+        reflht=reflh1(inbounds);
+        [~,id]=max(psdt(:));
+        pktn=psdt(id)/mean(psd(~inbounds));
+        %if reflh1(id) > rhlims(1) && reflh1(id) < rhlims(2)
+        if pktn > pktnlim
         snr_datatmp=snr_data(stind:ind-stopp,:);    
         rhind=rhind+1;
         rh_stats(rhind,1)=mean(ttmp);                            % datenum
-        rh_stats(rhind,2)=reflh1(id);                            % rh (m)
+        rh_stats(rhind,2)=reflht(id);                            % rh (m)
         rh_stats(rhind,3)=satnotmp;                              % sat prn
         rh_stats(rhind,4)=tand(mean(snr_datatmp(:,2)))/(((pi/180)*...
             (snr_datatmp(end,2)-snr_datatmp(1,2)))...
@@ -164,12 +173,13 @@ while stopp==1
         rh_stats(rhind,6)=max(snr_datatmp(:,2));                 % THETA MAX
         rh_stats(rhind,7)=nanmean(snr_datatmp(:,3));             % MEAN AZI
         rh_stats(rhind,8)=nanmean(y1);                           % mean mag. tSNR
-        rh_stats(rhind,9)=max(psd);                              % the peak
+        rh_stats(rhind,9)=max(psdt);                              % the peak
         rh_stats(rhind,10)=var(snrtmp);                          % the variance
         rh_stats(rhind,11)=snr_datatmp(end,9)-snr_datatmp(1,9);  % arc length s
         if rh_stats(rhind,3)<0
             rh_stats(rhind,11)=-rh_stats(rhind,11);
         end
+        rh_stats(rhind,12)=pktn;                                 % peak to noise
         %%%%%%%%%%%%%%%%%%%%%%
         %%%%%%%%%%%%%%%%%%%%%%
         % SNR PLOT
@@ -200,8 +210,10 @@ while stopp==1
         if gfresnel==1
             % currently for L1 signal, could change to L2, see function description
             fresout=[pwdstr,'/tempoutput'];
-            googlefresnel(lat,lon,asind(sinelvt(1)),snr_datatmp(1,3),satnotmp,fresout,reflh1(id),1)
-            googlefresnel(lat,lon,asind(sinelvt(end)),snr_datatmp(end,3),satnotmp,fresout,reflh1(id),1)
+            googlefresnel(lat,lon,asind(sinelvt(1)),snr_datatmp(1,3),satnotmp,...
+                fresout,reflh1(id),1)
+            googlefresnel(lat,lon,asind(sinelvt(end)),snr_datatmp(end,3),satnotmp,...
+                fresout,reflh1(id),1)
         end
         %%%%%%%%%%%%%%%%%%%%%%
         %%%%%%%%%%%%%%%%%%%%%%
@@ -218,6 +230,8 @@ while stopp==1
     end
     fwd2=fwd1;
 end
+
+rh_stats=sortrows(rh_stats,1);
 
 end
 
