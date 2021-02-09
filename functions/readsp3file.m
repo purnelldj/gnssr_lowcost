@@ -44,7 +44,7 @@ if mod(txyz(1),1)~=0
     disp('starting point not start of day - bad')
 end
 
-xyz=xyz.*1000; % convert from km to m
+xyz=xyz.*1000; % convert from km to m - IMPORTANT
 
 fclose(fid);
 

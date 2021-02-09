@@ -37,7 +37,6 @@ function nmea2snr(nmeafile,sp3dir,sp3option,elvlims,azilims,tempres,snrdir)
 % 'lon' is the mean longitude (degrees)
 % 'height' is the height above WGS84 ellipsoid (m)
 
-
 warning('off','all')
 
 pwdstr=pwd;
@@ -118,7 +117,7 @@ while ~feof(fid) % this isn't working, sort out
         values=values{:};
         sats=values(4:4:end-3);
         if strcmp(tline(3),'L')
-            sats=sats-32;
+            sats=sats-32; % + 32-64
         elseif strcmp(tline(3),'A')
             sats=sats+32+24;
         end
