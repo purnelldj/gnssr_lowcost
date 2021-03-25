@@ -8,12 +8,10 @@ from scipy.stats import pearsonr
 import pickle
 import matplotlib.pyplot as plt
 from scipy.optimize import least_squares
-from scipy.optimize import minimize
-from scipy.optimize import Bounds
 from pathlib import Path
 from os import listdir
-from scipy.signal import savgol_filter
-from scipy.ndimage import uniform_filter1d
+
+# all code written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
 
 
 def glonasswlen(prn, signal):
@@ -659,7 +657,7 @@ def invsnr(sdatetime, edatetime, snrdir, invdir, kspac, tlen, rhlims, snrfit=Tru
     :param arctlim: split satellite arcs into sub arcs of length arctlim (in seconds)
     :param pktnlim: QC condition, ratio of periodogram peak to noise must be greater than this value
     :param normalize: normalize the snr prior to inversion
-    :param smoothqc: qc to filter out refl_hgt values > 3 std away from smoothed signal using savgol_filter
+    :param smoothqc: qc to filter out refl_hgt values > 3 std away from smoothed signal using mov_avg
     :param bspline_order: default = 2, not worth going higher and definitely don't want 1 (linear)
     :param kwargs:
     elvlims: elevation angle limits (e.g., [5, 30])
