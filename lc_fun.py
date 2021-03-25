@@ -12,7 +12,7 @@ from pathlib import Path
 from os import listdir
 
 # all code written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
-
+# run using python version 3.6
 
 def glonasswlen(prn, signal):
     channel = [1, -4, 5, 6, 1, -4, 5, 6, -2, -7, 0, -1, -2, -7, 0, -1, 4, -3, 3, 2, 4, -3, 3, 2]
