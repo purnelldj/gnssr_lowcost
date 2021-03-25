@@ -1,6 +1,8 @@
 function [res] = bspline_js(coefs_0,t_all,sinelv_all,snr_all,knots,bspline_order,...
     satno_all,gps,glo,gal,antno_all,meanhgts,sig)
 
+% % written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
+
 t_alls=t_all;
 sinelv_alls=sinelv_all;
 snr_alls=snr_all;

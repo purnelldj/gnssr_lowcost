@@ -1,7 +1,34 @@
 function [rh_stats,snr_dt] = snr2arcs(snr_data,staxyz,elvlims,azilims,...
     rhlims,dt,satconsts,sig,arclim,normalize,pktnlim,snrfigs,lspfigs,gfresnel)
-
 %%
+
+% This code is for organising SNR data into satellite arcs and performing
+% spectral analysis
+% written by Dave Purnell
+% https://github.com/purnelldj/gnssr_lowcost
+
+% INPUTS:
+% snr_data: output from nmea2snr.m
+% staxyz: approx xyz of statiom
+% elvlims: elevation angle limits
+% azilims: azimuth angle limits
+% rhlims: reflector height limits min/max (m)
+% dt: temporal resolution of input SNR data (in seconds), if larger than
+% the actual resolution then will remove data to convert
+% satconsts: 1 by 3 double, 1 or 0 to include satellite constellations
+% GPS, GLONASSS, GALILEO (e.g., [1 0 1] for GPS and GALILEO)
+% sig: 1 for l1 or 2 for l2
+% arclim: time limit (in seconds) for spectral analysis of satellite arc
+% pktnlim: for outlier detection - max power of reflector height must be
+% larger than pktnlim times the mean of the periodogram outside rhlims
+% snrfigs: 1 or 0 to produce figures of SNR data in tempoutput directory
+% lspfigs: as above but with LSP figures
+% gfresnel: output fresnel zones of start / end points of satellite arcs
+
+% OUTPUTS
+% rh_stats: organised reflector height estimates and other stats from
+% satellite arcs. See below for description of data
+% snr_dt: detrended SNR data for inverse analysis (e.g., invsnr.m)
 
 rh_stats=[];
 snr_dt=[];

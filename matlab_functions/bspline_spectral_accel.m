@@ -1,6 +1,6 @@
 function bsplinenadj = bspline_spectral_accel(coefs,bspline_order,knots,tanthter,xinit,tinit,dohgtcor)
 
-% made by david purnell (2020)
+% written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
 
 evendt=1/(24*60);
 t_even=min(knots):evendt:max(knots); % 5 min intervals, can change

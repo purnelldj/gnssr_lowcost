@@ -2,6 +2,7 @@ function [txyz,xyz] = readsp3file(sp3str)
 
 % this function reads an sp3 orbit file and outputs timex and x,y,z
 % positions of satellites
+% written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
 
 fid=fopen(sp3str);
 

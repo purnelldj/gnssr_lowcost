@@ -1,13 +1,12 @@
 function [sfacsjs,sfacspre,rh_stats,consts_out,roughout] = invsnr(...
     tdatenum,snrdir,staxyz,elvlims,azilims,rhlims,kspac,tlen,dt,satconsts,...
-    sig,arclim,pktnlim,largetides,roughin,skipjs, meanhgt_input, smoothqc)
+    sig,arclim,pktnlim,largetides,roughin,skipjs,meanhgt_input, smoothqc)
 
 
 %%
 % this code is for inverse modelling of SNR data to get GNSS-R measurements
 % as per Strandberg et al. (2016)
-
-% TEST
+% written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
 
 % INPUTS
 % tdatenum: day or time in datenum format
@@ -32,11 +31,14 @@ function [sfacsjs,sfacspre,rh_stats,consts_out,roughout] = invsnr(...
 % adjustment, set to '' if don't want to use roughness
 % skipjs: skip the least squares adjustment as per strandberg et. al and
 % instead just fit the b-spline curve using spectral analysis estimates
+% meanhgt_input: if feeding data from more than one antenna at the same
+% time, give mean vertical separation between antennnas
+% smoothqc: QC option to remove outliers from spectral analysis estimates
 
 % OUTPUTS
 % these outputs are to go with the function 'invsnr_plot.m'
-% sfacsjs: node values estimated from Strandberg et al. analysis
-% sfacspre: node values estimated by using spectral analysis adjustment
+% sfacsjs: b-spline scaling factors estimated from Strandberg et al. analysis
+% sfacspre: b-spline scaling factors estimated by using spectral analysis adjustment
 % rh_stats: see output from snr2arcs
 % consts_out: the other variables estimated as part of least squares
 % adjustment
@@ -68,14 +70,7 @@ tdatenum=tdatenum-tlen/3;
 curdt=datetime(tdatenum+tlen/3,'convertfrom','datenum');
 disp(char(curdt))
 
-% work out if need two days or just one
 mlen=1;
-%if tdatenum+tlen-mod(tdatenum+tlen,1)-(tdatenum-mod(tdatenum,1))>0
-%    mlen=tdatenum+tlen-mod(tdatenum+tlen,1)-(tdatenum-mod(tdatenum,1))+1;
-%    if mod(tdatenum+tlen,1)==0
-%        mlen=mlen-1;
-%    end
-%end
 dt_s = datetime(tdatenum,'convertfrom','datenum');
 dt_e = datetime(tdatenum+tlen,'convertfrom','datenum');
 if day(dt_s) ~= day(dt_e)
@@ -85,8 +80,6 @@ if day(dt_s) ~= day(dt_e)
         mlen = 1;
     end
 end
-
-% AT THIS POINT THE tdatenum AND CURJD ARE THE SAME
 
 % try getting day in order of station first, then after detrended, organise
 % by time, then that's it
@@ -167,17 +160,9 @@ else
     meanhgts=0;
 end
 
-std_consec=std(diff(rh_stats(:,2)));
-% disp(['standard deviation is ',num2str(std_consec)])
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % OUTLIER DETECTION OPTIONS
-
-%if std_consec > 3
-%    disp('std bigger than chosen value')
-%    return    
-%end
 
 % get rid of satellite ascending and descending points separately
 if smoothqc

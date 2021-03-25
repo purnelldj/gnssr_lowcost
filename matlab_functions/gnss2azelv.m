@@ -2,6 +2,7 @@ function [azimuth,elev] = gnss2azelv(staXYZ,SatPos,lat,lon)
 
 % converts station position and satellite position to azimuth and elevation
 % angles
+% written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
 
 dx=SatPos(1)-staXYZ(1);
 dy=SatPos(2)-staXYZ(2);

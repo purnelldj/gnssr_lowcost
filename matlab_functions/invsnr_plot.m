@@ -25,6 +25,7 @@ function [t_rh,rh_invjs,rh_invpre,rh_stats,rms_js,rms_pre] = invsnr_plot(startda
 % t_rh: time vector in datenum format
 % rh_invjs: output of b-spline reflector heights from Strandberg et al. analysis
 % rh_invpre: output of b-spline reflector heights using spectral analysis
+% rh_stats: see output from snr2arcs
 % rms_js: rms between tide gauge and invjs output
 % rms_pre: rms between tide gauge and invdp output
 

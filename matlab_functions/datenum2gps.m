@@ -1,5 +1,7 @@
 function [gpsweek,sow] = datenum2gps(datenm)
 
+% written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
+
 curdt = datetime(datenm,'convertfrom','datenum');
 jd = juliandate(curdt);
 curdtgps = datetime(1980,1,6);

@@ -4,7 +4,8 @@ function nmea2snr(nmeafile,sp3dir,sp3option,elvlims,azilims,tempres,snrdir)
 
 % This function reads NMEA 0183 format GPS data (e.g., recorded by
 % low-cost hardware) and converts it into files for GNSS-R analysis
-%
+% written by Dave Purnell https://github.com/purnelldj/gnssr_lowcost
+
 % NOTE: INTERPOLATING SP3 FILES PROPERLY IS IMPORTANT
 %
 % INPUTS

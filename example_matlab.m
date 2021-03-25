@@ -7,7 +7,6 @@ addpath('matlab_functions')
 %% analyze the raw output from low-cost antennas to extract SNR data
 % uploaded 1 day of sample data for short configuration of antennas at
 % Trois-Rivieres
-% 
 
 clear
 
@@ -26,8 +25,6 @@ nmeafile = ['data/rv3s/rawdata_github/gpslog',antennaid,'_sample'];
 nmea2snr(nmeafile,sp3dir,sp3option,elvlims,azilims,tempres,snrdir);
 
 end
-
-return
 
 %% now extract some station parameters
 
@@ -116,12 +113,12 @@ end
 
 
 end
-return
 
 %% now to plot the output from inverse modelling
 
 clear; close
 
+% below plotting output from all four antennas simultaneously
 invdir = cellstr({'data/rv3s/a/invout_1200_pktn15', 'data/rv3s/b/invout_1200_pktn15',...
     'data/rv3s/c/invout_1200_pktn15', 'data/rv3s/d/invout_1200_pktn15'}); 
 % combine solutions by putting more than one directory
@@ -131,7 +128,7 @@ tgstring = 'data/rv3s/tg_sep9_oct10';
 
 kspac = 1/24;
 tlen = 6/24;
-plotl = 15/(24*60);
+plotl = 3/(24*60);
 plotrh = 1;
 plotvdc = 0;
 rhlims = [3.5 6];
