@@ -177,18 +177,19 @@ def readsp3file(sp3str):
         X_arr = X_arr[:counter]
         Y_arr = Y_arr[:counter]
         Z_arr = Z_arr[:counter]
-    sp3_data = {'DateTime': datetime_arr, 'Satellite PRN': satprn_arr, 'X': X_arr, 'Y': Y_arr, 'Z': Z_arr}
+    sp3_data = {'DateTime': datetime_arr, 'sat_prn': satprn_arr, 'X': X_arr, 'Y': Y_arr, 'Z': Z_arr}
     sp3_df = pd.DataFrame(sp3_data)
     return sp3_df
 
 
-def nmea2snr(nmeastr, sp3dir, snrdir, **kwargs):
+def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
     """
     This function reads NMEA 0183 format GPS data (e.g., recorded by low-cost GNSS hardware) and
     converts it into files for GNSS-R analysis
     :param nmeastr: path to nmea file
-    :param sp3dir: path to directory with sp3 orbit data
     :param snrdir: path to directory where organised SNR data is saved as 'pickle' files
+    :param sp3dir: path to directory with sp3 orbit data,
+    if sp3dir=False then saves the azimuth and elevation angle data from NMEA file
     to load use the following code:
     f = open(snrstr, 'rb')
     snr_df = pickle.load(f)  # SNR data
@@ -242,8 +243,8 @@ def nmea2snr(nmeastr, sp3dir, snrdir, **kwargs):
                     lont = float(row[4][0:3]) + float(row[4][3:])/60
                     if row[5] == 'W':
                         lont = -lont
-                    if '$' in str(row[11]):
-                        print('this random $ issue?')
+                    if '$' in line[1:-1]:
+                        print('misplaced $ issue')
                         line = f.readline()
                         cnt = cnt + 1
                         continue
@@ -277,6 +278,7 @@ def nmea2snr(nmeastr, sp3dir, snrdir, **kwargs):
                                 nmeadata[satidt] = np.empty((86400, 4))
                                 nmeadata[satidt][:] = np.nan
                             nmeadata[satidt][sect, :] = [sect, int(row[ind + 1]), int(row[ind + 2]), int(row[ind + 3])]
+                            # elevation, azimuth, SNR
                         ind = ind + 4
                 line = f.readline()
                 cnt = cnt + 1
@@ -287,6 +289,7 @@ def nmea2snr(nmeastr, sp3dir, snrdir, **kwargs):
             print('empty file')
             return
         f.close()
+
         if 'xyz_ant' in kwargs:
             xyz_ant = kwargs.get('xyz_ant')
         else:
@@ -300,39 +303,52 @@ def nmea2snr(nmeastr, sp3dir, snrdir, **kwargs):
             # print('mean hgt is ' + str(meanhgt))
             # then use lla2ecef, not the end of the world if not too precise
             xyz_ant = lla2ecef(meanlat/180*np.pi, meanlon/180*np.pi, meanhgt)
-        # get date strings for finding the sp3 files
-        doy_str = str(curdt.timetuple().tm_yday)
-        year_str = str(curdt.year)
-        # you could add more options for the orbit files if you want
-        # since the naming conventions are different, give diff types of files unique directory names
-        if sp3dir[-3:] == 'COD':
-            sp3str = sp3dir + '/COD0MGXFIN_' + year_str + doy_str + '0000_01D_05M_ORB.SP3'
-        elif sp3dir[-3:] == 'GFZ':
-            sp3str = sp3dir + '/GFZ0MGXRAP_' + year_str + doy_str + '0000_01D_05M_ORB.SP3'
-        else:
-            print('you need to configure this code for different SP3 orbit files')
-            return
-        print('getting orbit info for ' + str(curdt.date()))
-        dt = 1/86400  # maximum possible resolution
+
+        dt = 1  # maximum possible resolution
         if 'tempres' in kwargs:
             dt = kwargs.get('tempres')
-            dt = dt/86400
+
+        if sp3dir:
+            # get date strings for finding the sp3 files
+            doy_str = str(curdt.timetuple().tm_yday)
+            year_str = str(curdt.year)
+            # you could add more options for the orbit files if you want
+            # since the naming conventions are different, give diff types of files unique directory names
+            if sp3dir[-3:] == 'COD':
+                sp3str = sp3dir + '/COD0MGXFIN_' + year_str + doy_str + '0000_01D_05M_ORB.SP3'
+            elif sp3dir[-3:] == 'GFZ':
+                sp3str = sp3dir + '/GFZ0MGXRAP_' + year_str + doy_str + '0000_01D_05M_ORB.SP3'
+            else:
+                print('you need to configure this code for different SP3 orbit files')
+                return
+            print('getting orbit info for ' + str(curdt.date()))
+            sp3_df = readsp3file(sp3str)
+        else:
+            print('no sp3 data - using azimuth and elevation values directly from NMEA')
+
+        # now doing putting into snr_data format
         snrdata = np.empty((0, 6))
-        sp3_df = readsp3file(sp3str)
         for satidt in nmeadata:
-            # find the corresponding times with snr data (non-nan values)
             nmeadatat = nmeadata[satidt]
-            nanfilter = np.isnan(nmeadatat[:, 0]) == 0
-            nmeadatat = nmeadatat[nanfilter, :]
-            secst = nmeadatat[:, 0]
-            datet_nmea = date2num(curdt) + secst/86400
-            # first check if orbit data exists
-            if satidt in sp3_df['Satellite PRN'].values:
-                tfilter = sp3_df['Satellite PRN'] == satidt
+            # first get rid of nans
+            tfilter = np.isnan(nmeadatat[:, 0]) == 0
+            nmeadatat = nmeadatat[tfilter, :]
+            # now do the dt adjustment
+            tfilter = np.mod(nmeadatat[:, 0], dt) == 0
+            nmeadatat = nmeadatat[tfilter, :]
+            # now make a datetime array
+            datetime_t = curdt + nmeadatat[:, 0] * datetime.timedelta(seconds=1)
+            # now make a satellite a
+            tempsats = np.empty((len(datetime_t)), dtype=object)
+            tempsats[:] = satidt
+            tempdata = np.column_stack((date2num(datetime_t), tempsats, nmeadatat[:, 1], nmeadatat[:, 2],
+                                        nmeadatat[:, 3], nmeadatat[:, 0]))
+            if sp3dir and satidt in sp3_df['sat_prn'].values:
+                tfilter = sp3_df['sat_prn'] == satidt
                 tt_sp3 = sp3_df['DateTime'][tfilter].values
-                tt_sp3 = date2num(tt_sp3)
-                # this is where you would put the alternate tempres
+                tt_sp3 = [(tt - tt_sp3[0]).astype('timedelta64[s]').astype(int) for tt in tt_sp3]
                 tt_sp3_new = np.linspace(tt_sp3[0], tt_sp3[-1], int((tt_sp3[-1] - tt_sp3[0]) / dt) + 1)
+                t_sp3_new = np.array(tt_sp3_new, dtype=float)
                 xt = sp3_df['X'][tfilter].values
                 xtck = interpolate.splrep(tt_sp3, xt)
                 x_new = interpolate.splev(tt_sp3_new, xtck)
@@ -344,24 +360,22 @@ def nmea2snr(nmeastr, sp3dir, snrdir, **kwargs):
                 z_new = interpolate.splev(tt_sp3_new, ztck)
                 xyz_new = np.column_stack((x_new, y_new, z_new))
                 azit, elvt = gnss2azelv(xyz_ant, xyz_new)
-                indt = np.logical_and(azit >= azilims[0], azit <= azilims[1])
-                azit = azit[indt]
-                elvt = elvt[indt]
-                tt_sp3_new = tt_sp3_new[indt]
-                indt = np.logical_and(elvt >= elvlims[0], elvt <= elvlims[1])
-                azit = azit[indt]
-                elvt = elvt[indt]
-                tt_sp3_new = tt_sp3_new[indt]
                 # now find the overlapping dates
-                _, ind_nmea, ind_sp3 = np.intersect1d(datet_nmea, tt_sp3_new, return_indices=True)
-                tempsats = np.empty((len(ind_nmea)), dtype=object)
-                tempsats[:] = satidt
-                tempdata = np.column_stack((datet_nmea[ind_nmea], tempsats, elvt[ind_sp3], azit[ind_sp3],
-                                            nmeadatat[ind_nmea, 3], secst[ind_nmea]))
+                _, ind_nmea, ind_sp3 = np.intersect1d(np.array(nmeadatat[:, 0], dtype=float), tt_sp3_new,
+                                                      return_indices=True)
+                tempdata[:, 2] = elvt[ind_sp3]
+                tempdata[:, 3] = azit[ind_sp3]
+            elif sp3dir:
+                print('missing orbit data for ' + satidt)
+                tempdata = []
+            # then collect all the data
+            if len(tempdata) > 0:
                 snrdata = np.vstack((snrdata, tempdata))
-            else:
-                print('missing orbit data for '+satidt)
-        snr_df = pd.DataFrame({'datenum': snrdata[:, 0], 'sat_id': snrdata[:, 1], 'elevation': snrdata[:, 2],
+        tfilter = np.logical_and(snrdata[:, 2] >= elvlims[0], snrdata[:, 2] <= elvlims[1])
+        snrdata = snrdata[tfilter]
+        tfilter = np.logical_and(snrdata[:, 3] >= azilims[0], snrdata[:, 3] <= azilims[1])
+        snrdata = snrdata[tfilter]
+        snr_df = pd.DataFrame({'datenum': snrdata[:, 0], 'sat_prn': snrdata[:, 1], 'elevation': snrdata[:, 2],
                                'azimuth': snrdata[:, 3], 'snr': snrdata[:, 4], 'seconds': snrdata[:, 5]})
         nanfilter = np.isnan(fixdata[:, 0]) == 0
         fixdata = fixdata[nanfilter, :]
@@ -378,7 +392,7 @@ def nmea2snr(nmeastr, sp3dir, snrdir, **kwargs):
             snr_df_old = pickle.load(f)
             frames = [snr_df_old, snr_df]
             snr_df = pd.concat(frames, ignore_index=True)
-            snr_df = snr_df.drop_duplicates(subset=['seconds', 'sat_id'])
+            snr_df = snr_df.drop_duplicates(subset=['seconds', 'sat_prn'])
             snr_df = snr_df.sort_values(by=['datenum'], ignore_index=True)
             fix_df_old = pickle.load(f)
             frames = [fix_df_old, fix_df]
@@ -435,11 +449,11 @@ def snr2arcs(snr_df, rhlims, signal='L1', arctlim=False, pktnlim=0, normalize=Fa
 
     if 'satconsts' in kwargs:
         satconsts = kwargs.get('satconsts')
-        # snr_df['sat_id'].astype(str).str[0]
+        # snr_df['sat_prn'].astype(str).str[0]
         allsats = ['G', 'R', 'E']
         for satc in allsats:
             if satc not in satconsts:
-                tfilter = snr_df['sat_id'].astype(str).str[0] != satc
+                tfilter = snr_df['sat_prn'].astype(str).str[0] != satc
                 snr_df = snr_df[tfilter]
 
     # elvlims and azilims
@@ -454,8 +468,8 @@ def snr2arcs(snr_df, rhlims, signal='L1', arctlim=False, pktnlim=0, normalize=Fa
 
     rh_arr = np.empty((0, 14))
     snr_dt = np.empty((0, 4), dtype=object)
-    for sat in np.unique(snr_df['sat_id']):
-        tfilter = snr_df['sat_id'] == sat
+    for sat in np.unique(snr_df['sat_prn']):
+        tfilter = snr_df['sat_prn'] == sat
         temp_df = snr_df[tfilter]
         if sat[0] == 'G' or sat[0] == 'E':
             if signal == 'L1':
@@ -712,6 +726,7 @@ def invsnr(sdatetime, edatetime, snrdir, invdir, kspac, tlen, rhlims, snrfit=Tru
             continue
         rh_df, snrdt_df = snr2arcs(snr_df, rhlims, signal=signal, arctlim=arctlim, pktnlim=pktnlim, normalize=normalize,
                                    **kwargs)
+
         if 'satconsts' in kwargs:
             satconsts = kwargs.get('satconsts')
         else:

@@ -10,7 +10,7 @@ import datetime
 nmeastr = 'data/rv3s/rawdata_github/gpslogA_sample'
 sp3dir = 'data/sp3/COD'
 snrdir = 'data/rv3s/a/snr'
-lc_fun.nmea2snr(nmeastr, sp3dir, snrdir, tempres=15)
+lc_fun.nmea2snr(nmeastr, snrdir, sp3dir=sp3dir, tempres=15)
 
 # 2. now analyze the SNR data
 
