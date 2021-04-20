@@ -197,7 +197,7 @@ def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
     f.close()
     OUTPUT DATA FORMAT
     'snr_df' is in pandas.DataFrame format with the following columns
-    'datenum': time of observation in maplotlib dates format
+    'datenum': time of observation in matplotlib dates format
     'sat_prn': satellite constellation and number in the same format as in '.SP3' files (e.g., G01 = GPS sat 1)
     'elevation': elevation angle of satellite in degrees
     'azimuth': azimuth angle of satellite in degrees
