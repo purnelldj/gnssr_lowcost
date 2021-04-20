@@ -185,7 +185,7 @@ def readsp3file(sp3str):
 def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
     """
     This function reads NMEA 0183 format GPS data (e.g., recorded by low-cost GNSS hardware) and
-    converts it into files for GNSS-R analysis
+    converts it into organised files for GNSS-R analysis
     :param nmeastr: path to nmea file
     :param snrdir: path to directory where organised SNR data is saved as 'pickle' files
     :param sp3dir: path to directory with sp3 orbit data,
@@ -195,6 +195,19 @@ def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
     snr_df = pickle.load(f)  # SNR data
     fix_df = pickle.load(f)  # fix data (lat, lon, height)
     f.close()
+    OUTPUT DATA FORMAT
+    'snr_df' is in pandas.DataFrame format with the following columns
+    'datenum': time of observation in maplotlib dates format
+    'sat_prn': satellite constellation and number in the same format as in '.SP3' files (e.g., G01 = GPS sat 1)
+    'elevation': elevation angle of satellite in degrees
+    'azimuth': azimuth angle of satellite in degrees
+    'snr': SNR in units of dB-Hz
+    'seconds': seconds of day of observation
+    'fix_df' is in pandas.DataFrame format with the following columns
+    'seconds': seconds of day
+    'latitude': in degrees
+    'longitude': in degrees
+    'height': in m relative to WGS84 elipsoid
     :**kwargs:
     elvlims: elevation angle limits (default [0, 90])
     azilims: azimuth angle limits (default = [0, 360])
