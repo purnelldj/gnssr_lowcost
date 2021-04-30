@@ -136,13 +136,13 @@ def readsp3file(sp3str):
     """
     Reads an sp3 orbit file and returns satellite identities and xyz coordinates
     maybe better to have output time array in matplotlib format
-    :param sp3str:
-    :return:
-    t_sp3: time array in datetime format
-    xyz_sp3: xyz position of all satellites, an array of size [92, tlen, 3]
-    the first dimension is for the satellites (1-32 = GPS, 33-56 = GLONASS, 57-92 = Galileo
-    the second dimension is for the time (length of the t_sp3 vector)
-    the third dimesion is for the x, y, z coordinates (converted to meters)
+    input
+    'sp3str': string to location of .sp3 orbit data
+    outputs
+    'sp3_df': pandas data frame object with 5 columns
+    'DateTime' date and time of data in datetime.datetime format
+    'sat_prn' sat constellation and number, e.g., 'G01' for GPS sat #1 ('R' for GLONASS, 'E' for Galileo)
+    'X', 'Y' and 'Z' are ECEF coordinates (in m)
     """
     startid = 1
     counter = -1
