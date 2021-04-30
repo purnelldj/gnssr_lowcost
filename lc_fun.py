@@ -135,7 +135,6 @@ def gnss2azelv(xyz_ant, xyz_sat):
 def readsp3file(sp3str):
     """
     Reads an sp3 orbit file and returns satellite identities and xyz coordinates
-    maybe better to have output time array in matplotlib format
     input
     'sp3str': string to location of .sp3 orbit data
     outputs
