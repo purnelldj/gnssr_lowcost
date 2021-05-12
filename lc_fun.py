@@ -851,7 +851,7 @@ def invsnr(sdatetime, edatetime, snrdir, invdir, kspac, tlen, rhlims, snrfit=Tru
     return
 
 
-def invsnr_plot(sdatetime, edatetime, invdir, plotl=1/(24*10), **kwargs):
+def invsnr_plot(sdatetime, edatetime, invdir, plotl=1/(24*10), cubspl=False, **kwargs):
     """
     plot output from the 'invsnr' function above and compare with tide gauge, if given as input
     the figure is saved to a file, 'reflh_test.png'
@@ -898,6 +898,13 @@ def invsnr_plot(sdatetime, edatetime, invdir, plotl=1/(24*10), **kwargs):
                 inds = 0
             elif tdatetime == edatetime - tlen_td/3:
                 inde = int(tlen/kspac + bspline_order)
+            if cubspl:
+                inds = int(tlen / (3 * kspac))
+                inde = int((2 * tlen) / (3 * kspac))
+                if tdatetime == edatetime - tlen_td / 3:
+                    inde = int((2 * tlen) / (3 * kspac)) + 1
+                if tdatetime == sdatetime:
+                    inds = int(tlen / (3 * kspac)) - 1
             try:
                 f = open(tfilestr, 'rb')
                 invout = pickle.load(f)
@@ -909,21 +916,21 @@ def invsnr_plot(sdatetime, edatetime, invdir, plotl=1/(24*10), **kwargs):
                 frames = [rh_df, rh_dft]
                 rh_df = pd.concat(frames, ignore_index=True)
                 # now get the scaling factors if they exist
-                sfacs_spectralt = invout['sfacs_spectral']
+                sfacs_spectralt = invout['sfacs_spectral'][inds:inde]
                 if 'sfacs_js' in invout:
-                    sfacs_jst = invout['sfacs_js']
+                    sfacs_jst = invout['sfacs_js'][inds:inde]
             except IOError:
                 if dispmissedmsg:
                     print('missing data on ' + str(tdatetime.date()) + ' ' + str(tdatetime.time()) + ' putting nans')
                     dispmissedmsg = False
-                sfacs_spectralt = np.empty(inde-inds+1)
+                sfacs_spectralt = np.empty(inde-inds)
                 sfacs_spectralt[:] = np.nan
                 if 'sfacs_js' in invout:
-                    sfacs_jst = np.empty(inde-inds+1)
+                    sfacs_jst = np.empty(inde-inds)
                     sfacs_jst[:] = np.nan
-            sfacs_spectral = np.append(sfacs_spectral, sfacs_spectralt[inds:inde])
+            sfacs_spectral = np.append(sfacs_spectral, sfacs_spectralt)
             if 'sfacs_js' in invout:
-                sfacs_js = np.append(sfacs_js, sfacs_jst[inds:inde])
+                sfacs_js = np.append(sfacs_js, sfacs_jst)
         if len(invdir) > 1:
             cntdir = cntdir + 1
             if cntdir == 0:
@@ -963,12 +970,23 @@ def invsnr_plot(sdatetime, edatetime, invdir, plotl=1/(24*10), **kwargs):
             sfacs_js = np.nanmedian(sfacs_js_toavg, axis=0)
     sdatenum = date2num(sdatetime)
     edatenum = date2num(edatetime)
-    knots = np.hstack((sdatenum - tlen/3 * np.ones(bspline_order),
-                       np.linspace(sdatenum - tlen/3, edatenum + tlen/3,
-                                   int((edatenum - sdatenum + 2*tlen/3) / kspac + 1)),
-                       edatenum + tlen/3 * np.ones(bspline_order)))
     tplot = np.linspace(sdatenum, edatenum, int((edatenum - sdatenum) / plotl + 1))
-    rh_spectral = interpolate.splev(tplot, (knots, sfacs_spectral, bspline_order))
+    if not cubspl:
+        knots = np.hstack((sdatenum - tlen / 3 * np.ones(bspline_order),
+                           np.linspace(sdatenum - tlen / 3, edatenum + tlen / 3,
+                                       int((edatenum - sdatenum + 2 * tlen / 3) / kspac + 1)),
+                           edatenum + tlen / 3 * np.ones(bspline_order)))
+        rh_spectral = interpolate.splev(tplot, (knots, sfacs_spectral, bspline_order))
+    else:
+        knots = np.linspace(sdatenum - kspac/2, edatenum + kspac/2, int((edatenum - sdatenum) / kspac + 2))
+        tfilter = np.isnan(sfacs_spectral) == 0
+        sfacs_spectral = sfacs_spectral[tfilter]
+        knots = knots[tfilter]
+        tfilter = np.logical_and(tplot[:] >= np.min(knots), tplot[:] <= np.max(knots))
+        tplot = tplot[tfilter]
+        cubspl_f = interpolate.interp1d(knots, sfacs_spectral, kind='cubic')
+        rh_spectral = cubspl_f(tplot)
+
     fig, ax = plt.subplots(figsize=(8, 4))
     if 'tgstr' in kwargs:
         rh_df['refl_hgt'] = np.mean(rh_df['refl_hgt'].values) - rh_df['refl_hgt'].values
@@ -982,12 +1000,18 @@ def invsnr_plot(sdatetime, edatetime, invdir, plotl=1/(24*10), **kwargs):
         ptg.set_label('tide gauge')
         # now calculate rms
         rh_spectral_rms = interpolate.splev(tgdata[:, 0], (knots, sfacs_spectral, bspline_order))
+        if cubspl:
+            tfilter = np.logical_and(tgdata[:, 0] >= np.min(knots), tgdata[:, 0] <= np.max(knots))
+            rh_spectral_rms = cubspl_f(tgdata[tfilter, 0])
         tf = ~np.isnan(rh_spectral_rms)
         rh_spectral_rms = np.nanmean(rh_spectral_rms) - rh_spectral_rms
         rh_spectral = np.nanmean(rh_spectral) - rh_spectral
-        rms_spectral = np.sqrt(np.mean((rh_spectral_rms[tf] - tgdata[tf, 1]) ** 2))*100
+        if not cubspl:
+            rms_spectral = np.sqrt(np.mean((rh_spectral_rms[tf] - tgdata[tf, 1]) ** 2))*100
+        else:
+            rms_spectral = np.sqrt(np.mean((rh_spectral_rms[tf] - tgdata[tfilter, 1]) ** 2)) * 100
         print('rms_spectral is %.3f cm' % rms_spectral)
-        corr_spectral = pearsonr(rh_spectral_rms[tf], tgdata[tf, 1])
+        # corr_spectral = pearsonr(rh_spectral_rms[tf], tgdata[tf, 1])
         # print('corr_spectral is %.3f' % corr_spectral[0])
     parc, = plt.plot_date(rh_df['datenum'], rh_df['refl_hgt'], '.')
     parc.set_label('arcs')
