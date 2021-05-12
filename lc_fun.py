@@ -771,32 +771,32 @@ def invsnr(sdatetime, edatetime, snrdir, invdir, kspac, tlen, rhlims, snrfit=Tru
             #print('got rid of ' + str(presm - len(rh_df.index)) + ' points')
 
         if largetides:
-            tfilter = np.logical_and(rh_df['datenum'].values > date2num(tdatetime + tlen_td/3),
-                                     rh_df['datenum'].values < date2num(tdatetime + 2*tlen_td/3))
-            tfilter = np.where(tfilter)[0]
-            if tfilter[0] != 0:
-                tfilter = np.append(tfilter[0]-1, tfilter)
-            if tfilter[-1] != len(rh_df.index)-1:
-                tfilter = np.append(tfilter, tfilter[-1]+1)
-            temp_df = rh_df.iloc[tfilter]
+            temp_dn = np.sort(rh_df['datenum'].values)
         else:
-            tfilter = np.logical_and(snrdt_df['datenum'].values > date2num(tdatetime + tlen_td / 3),
-                                     snrdt_df['datenum'].values < date2num(tdatetime + 2 * tlen_td / 3))
-            tfilter = np.where(tfilter)[0]
+            temp_dn = np.sort(snrdt_df['datenum'].values)
+        tfilter = np.logical_and(temp_dn > date2num(tdatetime + tlen_td / 3),
+                                 temp_dn < date2num(tdatetime + 2 * tlen_td / 3))
+        tfilter = np.where(tfilter)[0]
+        try:
             if tfilter[0] != 0:
                 tfilter = np.append(tfilter[0] - 1, tfilter)
-            if tfilter[-1] != len(snrdt_df.index) - 1:
+            if tfilter[-1] != len(temp_dn) - 1:
                 tfilter = np.append(tfilter, tfilter[-1] + 1)
-            temp_df = snrdt_df.iloc[tfilter]
-
-        temp_df = temp_df.sort_values(by=['datenum'], ignore_index=True)
-        maxtgap = np.max(np.ediff1d(temp_df['datenum'].values))
+            temp_dn = temp_dn[tfilter]
+        except IndexError:
+            print('not enough data - continue')
+            continue
+        maxtgap = np.max(np.ediff1d(temp_dn))
+        mintgap = np.min(np.ediff1d(temp_dn))
+        if mintgap < 0:
+            print('issue - values not in order')
+            continue
         print('max gap is ' + str(int(maxtgap * 24 * 60)) + ' minutes')
 
         if maxtgap > kspac:
             print('gap in data bigger than node spacing')
-            print('continue with risk of instabilities')
-            # continue
+            # print('continue with risk of instabilities')
+            continue
 
         knots = np.hstack((tdatenum * np.ones(bspline_order),
                           np.linspace(tdatenum, tdatenum_end, int(tlen / kspac + 1)),
