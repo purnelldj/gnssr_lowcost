@@ -196,7 +196,7 @@ def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
     f.close()
     OUTPUT DATA FORMAT
     'snr_df' is in pandas.DataFrame format with the following columns
-    'datenum': time of observation in matplotlib dates format
+    'datenum': time of observation in maplotlib dates format
     'sat_prn': satellite constellation and number in the same format as in '.SP3' files (e.g., G01 = GPS sat 1)
     'elevation': elevation angle of satellite in degrees
     'azimuth': azimuth angle of satellite in degrees
@@ -235,6 +235,11 @@ def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
             sect = np.nan
             while line:
                 row = line.split(',')
+                if '$' in line[1:-1]:
+                    print('misplaced $ issue')
+                    line = f.readline()
+                    cnt = cnt + 1
+                    continue
                 if row[0][3:6] == 'RMC':
                     sect = int(float(row[1][0:2]) * 60 * 60 + float(row[1][2:4]) * 60 + float(row[1][4:]))
                     curdt = datetime.datetime(int(row[9][4:6])+2000,
@@ -255,11 +260,6 @@ def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
                     lont = float(row[4][0:3]) + float(row[4][3:])/60
                     if row[5] == 'W':
                         lont = -lont
-                    if '$' in line[1:-1]:
-                        print('misplaced $ issue')
-                        line = f.readline()
-                        cnt = cnt + 1
-                        continue
                     hgtt = float(row[9])+float(row[11])
                     fixdata[sect, :] = [sect, latt, lont, hgtt]
                 elif row[0][3:6] == 'GSV' and np.isnan(sect) == 0:
@@ -375,6 +375,7 @@ def nmea2snr(nmeastr, snrdir, sp3dir=False, **kwargs):
                 # now find the overlapping dates
                 _, ind_nmea, ind_sp3 = np.intersect1d(np.array(nmeadatat[:, 0], dtype=float), tt_sp3_new,
                                                       return_indices=True)
+                tempdata = tempdata[ind_nmea]
                 tempdata[:, 2] = elvt[ind_sp3]
                 tempdata[:, 3] = azit[ind_sp3]
             elif sp3dir:
